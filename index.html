@@ -390,6 +390,14 @@
   </div>
 </div>
 
+<!-- Error Message Toast -->
+<div id="errorToast" class="fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg hidden z-50">
+  <div class="flex items-center">
+    <i class="fas fa-exclamation-circle mr-2"></i>
+    <span id="errorMessage">There was an error sending your message. Please try again.</span>
+  </div>
+</div>
+
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const contactForm = document.getElementById('contactForm');
@@ -399,6 +407,14 @@
     const whatsappBtn = document.getElementById('whatsappBtn');
     const callBtn = document.getElementById('callBtn');
     const successToast = document.getElementById('successToast');
+    const errorToast = document.getElementById('errorToast');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    // Configuration - Replace these with your actual details
+    const FORM_SUBMIT_EMAIL = 'jsrcargocbe@gmail.com';
+    const COMPANY_EMAIL = 'jsrcargocbe@gmail.com';
+    const WHATSAPP_NUMBER = '917200884844';
+    const PHONE_NUMBER = '7200884844';
     
     // Form submission handler
     contactForm.addEventListener('submit', function(e) {
@@ -414,13 +430,26 @@
     // Email option - using FormSubmit.co service
     emailBtn.addEventListener('click', function() {
       const formData = new FormData(contactForm);
+      const formObject = Object.fromEntries(formData.entries());
+      
+      // Add subject to the form data
+      formObject._subject = `New Quote Request for ${formObject.service}`;
+      formObject._replyto = formObject.email;
+      formObject._template = 'table'; // Makes the email more readable
       
       // Using FormSubmit.co to handle form submission
-      fetch('https://formsubmit.co/ajax/your-email@example.com', {
+      fetch(`https://formsubmit.co/ajax/${FORM_SUBMIT_EMAIL}`, {
         method: 'POST',
-        body: formData
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(formObject)
       })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
       .then(data => {
         console.log('Email sent successfully:', data);
         contactModal.classList.add('hidden');
@@ -429,45 +458,46 @@
       })
       .catch(error => {
         console.error('Error sending email:', error);
-        // Fallback to mailto: if fetch fails
-        sendEmailFallback();
+        // Fallback to direct email sending
+        sendEmailDirectly(formObject);
       });
     });
     
     // Fallback email function using mailto:
-    function sendEmailFallback() {
-      const name = document.getElementById('name').value;
-      const email = document.getElementById('email').value;
-      const phone = document.getElementById('phone').value;
-      const service = document.getElementById('service').value;
-      const message = document.getElementById('message').value;
+    function sendEmailDirectly(formData) {
+      const subject = `Quote Request for ${formData.service}`;
+      const body = `Name: ${formData.name}%0D%0AEmail: ${formData.email}%0D%0APhone: ${formData.phone}%0D%0AService Needed: ${formData.service}%0D%0AMessage: ${formData.message}`;
       
-      const subject = `Quote Request for ${service}`;
-      const body = `Name: ${name}%0D%0AEmail: ${email}%0D%0APhone: ${phone}%0D%0AService Needed: ${service}%0D%0AMessage: ${message}`;
+      const mailtoLink = `mailto:${COMPANY_EMAIL}?subject=${encodeURIComponent(subject)}&body=${body}`;
       
-      window.location.href = `mailto:your-email@example.com?subject=${encodeURIComponent(subject)}&body=${body}`;
+      // Try to open the mail client
+      const mailWindow = window.open(mailtoLink, '_blank');
+      
+      if (!mailWindow || mailWindow.closed || typeof mailWindow.closed === 'undefined') {
+        // If popup was blocked, show instructions
+        errorMessage.textContent = 'Your email client could not be opened. Please email us directly at ' + COMPANY_EMAIL;
+        showErrorToast();
+      } else {
+        showSuccessToast();
+      }
       
       contactModal.classList.add('hidden');
-      showSuccessToast();
       contactForm.reset();
     }
     
     // WhatsApp option
     whatsappBtn.addEventListener('click', function() {
-      const name = document.getElementById('name').value;
-      const email = document.getElementById('email').value;
-      const phone = document.getElementById('phone').value;
-      const service = document.getElementById('service').value;
-      const message = document.getElementById('message').value;
+      const formData = new FormData(contactForm);
+      const formObject = Object.fromEntries(formData.entries());
       
       // Format the message for WhatsApp
-      const whatsappMessage = `Hello JSR Cargo Movers,\n\nI'm interested in your services:\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nService Needed: ${service}\nMessage: ${message}`;
+      const whatsappMessage = `Hello JSR Cargo Movers,\n\nI'm interested in your services:\n\n*Name:* ${formObject.name}\n*Email:* ${formObject.email}\n*Phone:* ${formObject.phone}\n*Service Needed:* ${formObject.service}\n*Message:* ${formObject.message}`;
       
       // Encode the message for URL
       const encodedMessage = encodeURIComponent(whatsappMessage);
       
       // Open WhatsApp with the pre-filled message
-      window.open(`https://wa.me/917200884844?text=${encodedMessage}`, '_blank');
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`, '_blank');
       
       contactModal.classList.add('hidden');
       showSuccessToast();
@@ -476,7 +506,7 @@
     
     // Call option
     callBtn.addEventListener('click', function() {
-      window.location.href = 'tel:7200884844';
+      window.location.href = `tel:${PHONE_NUMBER}`;
       contactModal.classList.add('hidden');
     });
     
@@ -486,6 +516,14 @@
       setTimeout(() => {
         successToast.classList.add('hidden');
       }, 3000);
+    }
+    
+    // Show error toast
+    function showErrorToast() {
+      errorToast.classList.remove('hidden');
+      setTimeout(() => {
+        errorToast.classList.add('hidden');
+      }, 5000);
     }
     
     // Close modal when clicking outside
